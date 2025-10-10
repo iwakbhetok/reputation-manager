@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ locations, selectedLocation, setSelecte
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const routerLocation = RouterLocation();
-  const { isGoogleConnected, googleUser } = useAppContext();
+  const { isGoogleConnected, googleUser, googleBusinessPlaces } = useAppContext();
   const { user, logout } = useAuth();
 
   const getPageTitle = () => {
@@ -70,7 +70,7 @@ const Header: React.FC<HeaderProps> = ({ locations, selectedLocation, setSelecte
           {locationDropdownOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10 border border-gray-200">
               <ul className="py-1">
-                {locations.map((loc) => (
+                {(isGoogleConnected && googleBusinessPlaces.length > 0 ? googleBusinessPlaces : locations).map((loc) => (
                   <li key={loc.id}>
                     <button
                       onClick={() => handleLocationSelect(loc)}

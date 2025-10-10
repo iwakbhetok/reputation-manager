@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -10,7 +10,7 @@ import TeamPage from './pages/TeamPage';
 import LoginPage from './pages/LoginPage';
 import { mockLocations } from './constants';
 import type { Location } from './types';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useAppContext } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected route component
@@ -52,13 +52,46 @@ interface MainLayoutProps {
   setSelectedLocation: (location: Location) => void;
 }
 
+const HeaderWithLocations: React.FC<{ selectedLocation: Location; setSelectedLocation: (location: Location) => void }> = ({ selectedLocation, setSelectedLocation }) => {
+  const { isGoogleConnected, googleBusinessPlaces } = useAppContext();
+  const [firstLoad, setFirstLoad] = useState(true);
+  
+  // Use Google Business Places if connected and available, otherwise use mock locations
+  const displayedLocations = isGoogleConnected && googleBusinessPlaces.length > 0 
+    ? googleBusinessPlaces 
+    : mockLocations;
+
+  // Update selected location if Google connection status changes and the current selected location is not in the new list
+  useEffect(() => {
+    // Skip on first load to preserve the initial selected location
+    if (firstLoad) {
+      setFirstLoad(false);
+      return;
+    }
+
+    // If the current selected location is not in the displayed locations, select the first one from the new list
+    if (!displayedLocations.some(loc => loc.id === selectedLocation.id)) {
+      if (displayedLocations.length > 0) {
+        setSelectedLocation(displayedLocations[0]);
+      }
+    }
+  }, [displayedLocations, selectedLocation, setSelectedLocation, firstLoad]);
+
+  return (
+    <Header 
+      locations={displayedLocations} 
+      selectedLocation={selectedLocation} 
+      setSelectedLocation={setSelectedLocation} 
+    />
+  );
+};
+
 const MainLayout: React.FC<MainLayoutProps> = ({ selectedLocation, setSelectedLocation }) => {
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          locations={mockLocations} 
+        <HeaderWithLocations 
           selectedLocation={selectedLocation} 
           setSelectedLocation={setSelectedLocation} 
         />
