@@ -1,48 +1,74 @@
 import type { Location } from '../types';
 
-// Mock data for Google Business Places
-// In a real application, this would fetch from the Google Business API
+// Fetch Google Business Places from the actual Google Business API
 export const fetchGoogleBusinessPlaces = async (accessToken: string): Promise<Location[]> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // In a real app, this would make an actual API call to Google Business API
-  // For demo purposes, we'll return a subset of the mock locations
-  // based on the user's Google account email
-  const mockPlaces: Location[] = [
-    { 
-      id: 'google_loc1', 
-      name: 'Google Coffee Shop', 
-      address: '1001 Google Ave, Mountain View, CA' 
-    },
-    { 
-      id: 'google_loc2', 
-      name: 'Google Business Cafe', 
-      address: '2002 Google Blvd, Mountain View, CA' 
-    },
-    { 
-      id: 'google_loc3', 
-      name: 'Mountain View Branch', 
-      address: '3003 Silicon Valley Rd, Mountain View, CA' 
-    }
-  ];
+  try {
+    const response = await fetch(
+      'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-  return mockPlaces;
+    if (!response.ok) {
+      throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform the Google Business API response into our Location format
+    if (data && data.locations) {
+      return data.locations.map((location: any) => ({
+        id: location.name, // Google's location name is in the format "accounts/{account}/locations/{locationId}"
+        name: location.locationName || 'Unnamed Location',
+        address: formatAddress(location.address),
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching Google Business Places:', error);
+    throw error;
+  }
+};
+
+// Format Google's address object into a single string
+const formatAddress = (addressObj: any): string => {
+  if (!addressObj) return 'Address not available';
+  
+  const parts = [
+    addressObj.addressLines?.join(' '),
+    addressObj.locality,
+    addressObj.administrativeArea,
+    addressObj.postalCode,
+    addressObj.countryCode
+  ].filter(Boolean);
+  
+  return parts.join(', ');
 };
 
 // This function will be called after successful Google login
-export const initializeGoogleBusinessPlaces = async (googleUser: any): Promise<Location[]> => {
-  // In a real application, we would use the access token from the Google login
-  // For now, we'll simulate with mock data
+export const initializeGoogleBusinessPlaces = async (googleUser: any, accessToken?: string): Promise<Location[]> => {
+  if (!accessToken) {
+    // In a real application, you would implement a proper OAuth flow to get an access token
+    // with the 'https://www.googleapis.com/auth/business.manage' scope
+    // This typically involves:
+    // 1. Redirecting the user to Google's OAuth consent screen
+    // 2. Google redirects back with an authorization code
+    // 3. Exchanging the authorization code for an access token on your backend
+    // 4. Using that access token to call the Google Business API
+    console.warn('No access token provided for Google Business API');
+    return [];
+  }
+
   try {
-    // Here you would typically use the access token to call Google Business API
-    // const places = await fetchGoogleBusinessPlaces(accessToken);
-    
-    // For demo purposes, return some mock places related to the Google account
-    return await fetchGoogleBusinessPlaces('mock-token');
+    return await fetchGoogleBusinessPlaces(accessToken);
   } catch (error) {
     console.error('Error initializing Google Business Places:', error);
-    // If there's an error, return empty array or fallback to default locations
     return [];
   }
 };

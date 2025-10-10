@@ -7,6 +7,7 @@ interface GoogleUser {
   email: string;
   name: string;
   picture?: string;
+  accessToken?: string; // Add access token field
 }
 
 interface AppContextType {
@@ -54,8 +55,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setLoadingGoogleStatus(false);
   }, []);
 
-  const connectGoogle = async (user?: GoogleUser) => {
+  const connectGoogle = async (user?: GoogleUser, accessToken?: string) => {
     // In a real implementation, this would be called after successful OAuth
+    // with the 'https://www.googleapis.com/auth/business.manage' scope
     // For now, if no user is provided, we'll simulate by asking for email
     if (!user) {
       const email = prompt('Enter your Google email for demonstration:');
@@ -63,11 +65,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         user = {
           email,
           name: email.split('@')[0], // Simple mock name
-          picture: undefined
+          picture: undefined,
+          accessToken: accessToken || undefined
         };
       } else {
         return; // User cancelled the prompt
       }
+    } else if (accessToken) {
+      // If user is provided but we also have an access token, add it to the user object
+      user.accessToken = accessToken;
     }
     
     setIsGoogleConnected(true);
@@ -75,7 +81,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     // Fetch Google Business Places associated with this Google account
     try {
-      const places = await initializeGoogleBusinessPlaces(user);
+      const places = await initializeGoogleBusinessPlaces(user, user?.accessToken);
       setGoogleBusinessPlaces(places);
     } catch (error) {
       console.error('Error fetching Google Business Places:', error);

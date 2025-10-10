@@ -50,8 +50,14 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       // Decode the JWT response to get user info
       const userCred = decodeJwtResponse(response.credential);
       
-      // Update context with user info
-      connectGoogleWithInfo(userCred);
+      // In a real implementation, you would implement a complete OAuth flow to get an access token
+      // with the 'https://www.googleapis.com/auth/business.manage' scope.
+      // The Google Sign-In button only provides authentication, not the specific API access needed.
+      // For Google Business API access, you would need to implement the OAuth 2.0 flow separately
+      // to request the 'https://www.googleapis.com/auth/business.manage' scope.
+      
+      // For demonstration purposes, we're passing the credential as is.
+      connectGoogleWithInfo(userCred, response.credential);
       
       if (onSuccess) {
         onSuccess(userCred);
@@ -82,17 +88,18 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
     }
   };
 
-  const connectGoogleWithInfo = (userInfo: any) => {
+  const connectGoogleWithInfo = (userInfo: any, accessToken?: string) => {
     // Create a proper GoogleUser object from the JWT response
     const googleUser = {
       email: userInfo.email,
       name: userInfo.name,
-      picture: userInfo.picture
+      picture: userInfo.picture,
+      accessToken: accessToken
     };
     
     // In a real app, we would update the state with actual user info
     // For now, we'll trigger the existing connectGoogle function
-    connectGoogle(googleUser);
+    connectGoogle(googleUser, accessToken);
   };
 
   const onClick = () => {
