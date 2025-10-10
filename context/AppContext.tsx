@@ -1,0 +1,94 @@
+
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+
+interface GoogleUser {
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+interface AppContextType {
+  isGoogleConnected: boolean;
+  googleUser: GoogleUser | null;
+  connectGoogle: (user?: GoogleUser) => void;
+  disconnectGoogle: () => void;
+  loadingGoogleStatus: boolean;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+  const [loadingGoogleStatus, setLoadingGoogleStatus] = useState(true);
+
+  // Check for existing Google connection on app load
+  useEffect(() => {
+    const storedGoogleUser = localStorage.getItem('googleUser');
+    const storedIsConnected = localStorage.getItem('isGoogleConnected');
+
+    if (storedGoogleUser && storedIsConnected === 'true') {
+      try {
+        const parsedUser = JSON.parse(storedGoogleUser);
+        setGoogleUser(parsedUser);
+        setIsGoogleConnected(true);
+      } catch (e) {
+        console.error('Error parsing stored Google user data', e);
+      }
+    }
+    setLoadingGoogleStatus(false);
+  }, []);
+
+  const connectGoogle = (user?: GoogleUser) => {
+    // In a real implementation, this would be called after successful OAuth
+    // For now, if no user is provided, we'll simulate by asking for email
+    if (!user) {
+      const email = prompt('Enter your Google email for demonstration:');
+      if (email) {
+        user = {
+          email,
+          name: email.split('@')[0], // Simple mock name
+          picture: undefined
+        };
+      } else {
+        return; // User cancelled the prompt
+      }
+    }
+    
+    setIsGoogleConnected(true);
+    setGoogleUser(user);
+    
+    // Store in localStorage
+    localStorage.setItem('googleUser', JSON.stringify(user));
+    localStorage.setItem('isGoogleConnected', 'true');
+  };
+
+  const disconnectGoogle = () => {
+    setIsGoogleConnected(false);
+    setGoogleUser(null);
+    
+    // Remove from localStorage
+    localStorage.removeItem('googleUser');
+    localStorage.removeItem('isGoogleConnected');
+  };
+
+  return (
+    <AppContext.Provider value={{ 
+      isGoogleConnected, 
+      googleUser, 
+      connectGoogle, 
+      disconnectGoogle, 
+      loadingGoogleStatus 
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useAppContext = () => {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error('useAppContext must be used within an AppProvider');
+  }
+  return context;
+};
