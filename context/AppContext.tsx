@@ -92,7 +92,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Store in localStorage
     localStorage.setItem('googleUser', JSON.stringify(user));
     localStorage.setItem('isGoogleConnected', 'true');
-    localStorage.setItem('googleBusinessPlaces', JSON.stringify(places));
+    localStorage.setItem('googleBusinessPlaces', JSON.stringify(places)); // Use the fetched places
   };
 
   const disconnectGoogle = () => {

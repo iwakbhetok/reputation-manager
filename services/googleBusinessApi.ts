@@ -15,7 +15,15 @@ export const fetchGoogleBusinessPlaces = async (accessToken: string): Promise<Lo
     );
 
     if (!response.ok) {
-      throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
+      if (response.status === 401) {
+        console.warn('Google Business API: Unauthorized - check access token and required scopes (https://www.googleapis.com/auth/business.manage)');
+        throw new Error('Unauthorized: Please ensure the access token has the required Google Business scope');
+      } else if (response.status === 403) {
+        console.warn('Google Business API: Forbidden - account may not have access to business data');
+        throw new Error('Forbidden: Account does not have permission to access business data');
+      } else {
+        throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
+      }
     }
 
     const data = await response.json();
