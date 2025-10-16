@@ -31,7 +31,22 @@ To properly connect to the Google Business Management API and avoid 401 unauthor
    ```
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret  # Only for development - use backend in production
+   GOOGLE_REDIRECT_URI=your_redirect_uri  # Optional: specific redirect URI, defaults to window.location.origin
    ```
-5. **Configure authorized redirect URIs** in Google Cloud Console to include your application's URL
+5. **Configure authorized redirect URIs** in Google Cloud Console to include your application's URL:
+   - For development: `http://localhost:3000` (or your actual dev server port)
+   - For production: your production URL (e.g., `https://yourdomain.com`)
 
 **Important:** For production use, the OAuth token exchange should happen on your backend server to protect your client secret. The current frontend implementation is for development purposes only.
+
+### Troubleshooting redirect_uri_mismatch error:
+
+If you encounter a `redirect_uri_mismatch` error:
+
+1. Ensure the redirect URI in Google Cloud Console exactly matches your application URL
+2. Include the protocol (http/https) and port number if applicable
+3. For development, common URIs are:
+   - `http://localhost:3000` (if using port 3000)
+   - `http://localhost:5173` (if using Vite default port)
+4. Set the `GOOGLE_REDIRECT_URI` environment variable if using a custom redirect URI
+5. Check that there are no trailing slashes or additional paths

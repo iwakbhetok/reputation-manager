@@ -27,6 +27,22 @@ export interface OAuthTokenResponse {
  */
 export const initiateGoogleOAuth = (config: OAuthConfig): Promise<string> => {
   return new Promise((resolve, reject) => {
+    // Validate configuration
+    if (!config.clientId) {
+      reject(new Error('clientId is required for Google OAuth'));
+      return;
+    }
+    
+    if (!config.redirectUri) {
+      reject(new Error('redirectUri is required for Google OAuth'));
+      return;
+    }
+    
+    // Check for common redirect URI configuration issues
+    if (!config.redirectUri.startsWith('http')) {
+      console.warn(`Potential redirect URI configuration issue: ${config.redirectUri} - should start with http:// or https://`);
+    }
+    
     // Create a unique state parameter for security
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
@@ -45,11 +61,27 @@ export const initiateGoogleOAuth = (config: OAuthConfig): Promise<string> => {
     // Open the OAuth URL in a new window/popup
     const popup = window.open(oauthUrl, 'google_oauth', 'width=600,height=600');
     
+    if (!popup) {
+      reject(new Error('OAuth popup was blocked by the browser. Please allow popups for this site.'));
+      return;
+    }
+    
     // Listen for messages from the popup or for URL changes
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       
-      if (event.data.type === 'GOOGLE_OAUTH_CODE') {
+      if (event.data.type === 'GOOGLE_OAUTH_ERROR' && event.data.error) {
+        // Handle OAuth errors returned from Google
+        if (event.data.error === 'redirect_uri_mismatch') {
+          reject(new Error(
+            `OAuth redirect URI mismatch. Configured URI: ${config.redirectUri}. ` +
+            `Please ensure this matches your Google Cloud Console OAuth configuration.`
+          ));
+        } else {
+          reject(new Error(`OAuth Error: ${event.data.error} - ${event.data.error_description || ''}`));
+        }
+        window.removeEventListener('message', handleMessage);
+      } else if (event.data.type === 'GOOGLE_OAUTH_CODE') {
         resolve(event.data.code);
         window.removeEventListener('message', handleMessage);
       }
@@ -61,8 +93,11 @@ export const initiateGoogleOAuth = (config: OAuthConfig): Promise<string> => {
     const checkPopup = setInterval(() => {
       if (!popup || popup.closed) {
         clearInterval(checkPopup);
-        reject(new Error('OAuth popup was closed or blocked'));
-        window.removeEventListener('message', handleMessage);
+        // Only reject if we haven't already resolved/rejected
+        if (!sessionStorage.getItem('oauth_completed')) {
+          reject(new Error('OAuth popup was closed or blocked'));
+          window.removeEventListener('message', handleMessage);
+        }
       }
     }, 1000);
 
@@ -71,15 +106,38 @@ export const initiateGoogleOAuth = (config: OAuthConfig): Promise<string> => {
     const originalReplaceState = history.replaceState;
 
     const handleUrlChange = () => {
-      // Check if the URL contains an authorization code
+      // Check if the URL contains an authorization code or error
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
+      const error = urlParams.get('error');
       const stateParam = urlParams.get('state');
 
-      if (code && stateParam === state) {
+      if (error) {
+        // Handle OAuth errors from URL parameters
+        if (error === 'redirect_uri_mismatch') {
+          sessionStorage.removeItem('oauth_state');
+          reject(new Error(
+            `OAuth redirect URI mismatch. Configured URI: ${config.redirectUri}. ` +
+            `Please ensure this matches your Google Cloud Console OAuth configuration.`
+          ));
+        } else {
+          reject(new Error(`OAuth Error: ${error} - ${urlParams.get('error_description') || ''}`));
+        }
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Remove listeners
+        window.removeEventListener('message', handleMessage);
+        history.pushState = originalPushState;
+        history.replaceState = originalReplaceState;
+        sessionStorage.setItem('oauth_completed', 'true');
+      } else if (code && stateParam === state) {
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
         resolve(code);
+        
+        // Mark as completed to prevent duplicate handling
+        sessionStorage.setItem('oauth_completed', 'true');
         
         // Remove listeners
         window.removeEventListener('message', handleMessage);
@@ -177,9 +235,20 @@ export const refreshAccessToken = async (
 /**
  * Configuration for Google Business Management API
  */
+// Function to get the proper redirect URI based on environment
+const getRedirectUri = (): string => {
+  // For development, you might want to use a specific URI that matches your Google Cloud Console config
+  // Check if we're in development and potentially override the default
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+    // Common development URIs - adjust as needed for your configuration
+    return process.env.GOOGLE_REDIRECT_URI || window.location.origin;
+  }
+  return window.location.origin;
+};
+
 export const BUSINESS_API_CONFIG: OAuthConfig = {
   clientId: process.env.GOOGLE_CLIENT_ID || '',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET, 
-  redirectUri: window.location.origin, // Should match your OAuth redirect URI in Google Cloud Console
+  redirectUri: getRedirectUri(), // Should match your OAuth redirect URI in Google Cloud Console
   scope: 'https://www.googleapis.com/auth/business.manage' // Scope for Business Profile Management API
 };

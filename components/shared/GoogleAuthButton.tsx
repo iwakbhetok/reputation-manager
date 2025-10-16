@@ -73,9 +73,22 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         onSuccess(placeholderUser);
       }
       
-      console.log('Google OAuth flow initiated. User should be redirected to Google consent screen.');
-    } catch (error) {
+      console.log('Google OAuth flow completed. User should be redirected to Google consent screen.');
+    } catch (error: any) {
       console.error('Error in Google OAuth flow:', error);
+      
+      // Handle specific redirect_uri_mismatch error
+      if (error.message && error.message.includes('redirect_uri_mismatch')) {
+        console.error(
+          'Redirect URI mismatch error. Please ensure the following:\n' +
+          '1. The redirect URI in your Google Cloud Console matches your application URL\n' +
+          '2. For development, common URIs are: http://localhost:3000 or http://localhost:5173\n' +
+          '3. Make sure to include the exact protocol (http/https) and port number\n' +
+          '4. Your GOOGLE_REDIRECT_URI env variable should match the configured URI if different\n\n' +
+          'Check the documentation at: docs/google-business-api-setup.md'
+        );
+      }
+      
       if (onFailure) {
         onFailure(error);
       }
