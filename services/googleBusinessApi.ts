@@ -4,6 +4,7 @@ import type { Location } from '../types';
 export const fetchGoogleBusinessPlaces = async (accessToken: string): Promise<Location[]> => {
   try {
     // First, get the account information to determine the correct account ID
+    // NOTE: In a production environment, you should use a backend proxy to avoid exposing credentials
     const accountsResponse = await fetch(
       'https://mybusinessbusinessinformation.googleapis.com/v1/accounts',
       {
@@ -15,9 +16,7 @@ export const fetchGoogleBusinessPlaces = async (accessToken: string): Promise<Lo
       }
     );
 
-    let locationsUrl;
     if (!accountsResponse.ok) {
-      // If fetching accounts fails, try the default approach with '-' placeholder
       if (accountsResponse.status === 401) {
         console.warn('Google Business API: Unauthorized when fetching accounts - check access token and required scopes (https://www.googleapis.com/auth/business.manage)');
         throw new Error('Unauthorized: Please ensure the access token has the required Google Business scope');
@@ -25,56 +24,91 @@ export const fetchGoogleBusinessPlaces = async (accessToken: string): Promise<Lo
         console.warn('Google Business API: Forbidden - account may not have access to business data');
         throw new Error('Forbidden: Account does not have permission to access business data');
       } else {
+        // If fetching accounts fails, try the default approach with '-' placeholder
         console.warn(`Failed to fetch accounts list, will try default account: ${accountsResponse.status} ${accountsResponse.statusText}`);
-        // Continue with the default approach below
-        locationsUrl = 'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations';
+        
+        // Try the default account approach
+        const response = await fetch(
+          'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations',
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('Google Business API: Unauthorized for default account - check access token and required scopes (https://www.googleapis.com/auth/business.manage)');
+            throw new Error('Unauthorized: Please ensure the access token has the required Google Business scope');
+          } else if (response.status === 403) {
+            console.warn('Google Business API: Forbidden for default account - account may not have access to business data');
+            throw new Error('Forbidden: Account does not have permission to access business data');
+          } else {
+            throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
+          }
+        }
+
+        const data = await response.json();
+        
+        // Transform the Google Business API response into our Location format
+        if (data && data.locations) {
+          return data.locations.map((location: any) => ({
+            id: location.name, // Google's location name is in the format "accounts/{account}/locations/{locationId}"
+            name: location.locationName || 'Unnamed Location',
+            address: formatAddress(location.address),
+          }));
+        }
+        
+        return [];
+      }
+    }
+
+    const accountsData = await accountsResponse.json();
+    
+    // Use the first account if available
+    if (accountsData && accountsData.accounts && accountsData.accounts.length > 0) {
+      const accountName = accountsData.accounts[0].name; // This is the full resource name like "accounts/1234567890"
+      
+      // Make the locations request for the specific account
+      const response = await fetch(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Google Business API: Unauthorized for specific account - check access token and required scopes (https://www.googleapis.com/auth/business.manage)');
+          throw new Error('Unauthorized: Please ensure the access token has the required Google Business scope');
+        } else if (response.status === 403) {
+          console.warn('Google Business API: Forbidden for specific account - account may not have access to business data');
+          throw new Error('Forbidden: Account does not have permission to access business data');
+        } else {
+          throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const data = await response.json();
+      
+      // Transform the Google Business API response into our Location format
+      if (data && data.locations) {
+        return data.locations.map((location: any) => ({
+          id: location.name, // Google's location name is in the format "accounts/{account}/locations/{locationId}"
+          name: location.locationName || 'Unnamed Location',
+          address: formatAddress(location.address),
+        }));
       }
     } else {
-      const accountsData = await accountsResponse.json();
-      
-      // Use the first account if available, otherwise use the default placeholder
-      if (accountsData && accountsData.accounts && accountsData.accounts.length > 0) {
-        const accountName = accountsData.accounts[0].name; // This is the full resource name like "accounts/1234567890"
-        locationsUrl = `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`;
-      } else {
-        console.warn('No accounts found, using default account placeholder');
-        locationsUrl = 'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations';
-      }
-    }
-
-    // Make the locations request
-    const response = await fetch(
-      locationsUrl,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('Google Business API: Unauthorized - check access token and required scopes (https://www.googleapis.com/auth/business.manage)');
-        throw new Error('Unauthorized: Please ensure the access token has the required Google Business scope');
-      } else if (response.status === 403) {
-        console.warn('Google Business API: Forbidden - account may not have access to business data');
-        throw new Error('Forbidden: Account does not have permission to access business data');
-      } else {
-        throw new Error(`Google Business API request failed: ${response.status} ${response.statusText}`);
-      }
-    }
-
-    const data = await response.json();
-    
-    // Transform the Google Business API response into our Location format
-    if (data && data.locations) {
-      return data.locations.map((location: any) => ({
-        id: location.name, // Google's location name is in the format "accounts/{account}/locations/{locationId}"
-        name: location.locationName || 'Unnamed Location',
-        address: formatAddress(location.address),
-      }));
+      console.warn('No accounts found for this Google account');
+      throw new Error('No business accounts found for this Google account. Make sure your Google account is linked to a business profile.');
     }
     
     return [];

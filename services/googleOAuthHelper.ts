@@ -111,8 +111,16 @@ export const exchangeCodeForToken = async (
   code: string,
   config: OAuthConfig
 ): Promise<OAuthTokenResponse> => {
-  if (!config.clientId || !config.clientSecret) {
-    throw new Error('Missing Google client credentials. In production, token exchange should happen on your backend.');
+  // NOTE: For production applications, this exchange should happen on your backend
+  // to protect your client secret. The following implementation is for development only.
+  if (!config.clientId) {
+    throw new Error('Missing Google Client ID');
+  }
+  
+  // If client secret is not available (production case), guide developer to backend solution
+  if (!config.clientSecret) {
+    console.warn('GOOGLE_CLIENT_SECRET is not configured. In production, you must exchange the authorization code for an access token on your backend server.');
+    throw new Error('For security reasons, token exchange must happen on your backend server. Please implement a backend endpoint to handle this.');
   }
   
   const response = await fetch('https://oauth2.googleapis.com/token', {

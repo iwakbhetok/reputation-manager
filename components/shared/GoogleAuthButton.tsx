@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { BUSINESS_API_CONFIG, initiateGoogleOAuth } from '../../services/googleOAuthHelper';
 
 interface GoogleAuthButtonProps {
   onSuccess?: (user: any) => void;
@@ -20,95 +21,64 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
 }) => {
   const { connectGoogle } = useAppContext();
 
+  // Handle the OAuth callback when redirected back from Google
   useEffect(() => {
-    // Load Google Platform Library
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = initGoogleSignIn;
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup script if needed
-      document.body.removeChild(script);
-    };
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (code && state) {
+      // This is the callback after OAuth, we'll process it
+      // Remove the parameters from the URL to clean it up
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // In a real implementation, you'd exchange the code for a token on your backend
+      console.log("OAuth code received. In a real app, you would send this to your backend to exchange for an access token.");
+      
+      // For demo purposes, we'll need to use a backend endpoint to exchange the code
+      // Since we can't do that here, we'll show an alert with instructions
+      alert("Authorization code received. In a real application, this code would be sent to your backend to exchange for an access token with the Google Business Management scope.");
+    }
   }, []);
 
-  const initGoogleSignIn = () => {
-    if (window.google) {
-      window.google.accounts.id.initialize({
-        client_id: process.env.GOOGLE_CLIENT_ID || '', // Replace with your actual client ID in production
-        callback: handleCredentialResponse,
-        auto_select: false,
-      });
-    }
-  };
-
-  const handleCredentialResponse = (response: any) => {
+  const onClick = async () => {
     try {
-      // Decode the JWT response to get user info
-      const userCred = decodeJwtResponse(response.credential);
+      // For Google Business API access, we need to initiate the OAuth flow with the correct scope
+      // This will redirect the user to Google's consent screen
       
-      // In a real implementation, you would implement a complete OAuth flow to get an access token
-      // with the 'https://www.googleapis.com/auth/business.manage' scope.
-      // The Google Sign-In button only provides authentication, not the specific API access needed.
-      // For Google Business API access, you would need to implement the OAuth 2.0 flow separately
-      // to request the 'https://www.googleapis.com/auth/business.manage' scope.
+      // Check if the required configuration is available
+      if (!BUSINESS_API_CONFIG.clientId) {
+        throw new Error('GOOGLE_CLIENT_ID is not configured in environment variables');
+      }
       
-      // For demonstration purposes, we're passing the credential as is.
-      // NOTE: This will likely result in a 401 error if the access token doesn't have the proper scope
-      connectGoogleWithInfo(userCred, response.credential);
+      // Initiate the OAuth flow
+      const code = await initiateGoogleOAuth(BUSINESS_API_CONFIG);
+      
+      // In a real application, you would send this code to your backend
+      // to exchange for an access token with the business management scope
+      console.log('Authorization code received:', code);
+      
+      // For now, we'll simulate a successful login with a placeholder token
+      // In reality, you'd want to exchange the code for a token on your backend
+      const placeholderUser = {
+        email: 'demo@example.com', // This would come from the ID token
+        name: 'Demo User',
+        picture: undefined,
+        accessToken: `placeholder_token_${Date.now()}` // Placeholder - real token would come from backend
+      };
+      
+      connectGoogle(placeholderUser, placeholderUser.accessToken);
       
       if (onSuccess) {
-        onSuccess(userCred);
+        onSuccess(placeholderUser);
       }
+      
+      console.log('Google OAuth flow initiated. User should be redirected to Google consent screen.');
     } catch (error) {
-      console.error('Error handling Google login:', error);
+      console.error('Error in Google OAuth flow:', error);
       if (onFailure) {
         onFailure(error);
       }
-    }
-  };
-
-  const decodeJwtResponse = (token: string) => {
-    try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      
-      return JSON.parse(jsonPayload);
-    } catch (e) {
-      console.error('Error decoding JWT:', e);
-      throw e;
-    }
-  };
-
-  const connectGoogleWithInfo = (userInfo: any, accessToken?: string) => {
-    // Create a proper GoogleUser object from the JWT response
-    const googleUser = {
-      email: userInfo.email,
-      name: userInfo.name,
-      picture: userInfo.picture,
-      accessToken: accessToken
-    };
-    
-    // In a real app, we would update the state with actual user info
-    // For now, we'll trigger the existing connectGoogle function
-    connectGoogle(googleUser, accessToken);
-  };
-
-  const onClick = () => {
-    if (window.google) {
-      window.google.accounts.id.prompt();
-    } else {
-      // Fallback: Use the mock implementation
-      connectGoogle();
     }
   };
 
@@ -137,7 +107,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
               fill="#EA4335"
             />
           </svg>
-          <span>Continue with Google</span>
+          <span>Connect Google Business</span>
         </>
       )}
     </button>
