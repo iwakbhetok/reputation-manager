@@ -80,6 +80,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setGoogleUser(user);
     
     // Fetch Google Business Places associated with this Google account
+    // Note: This will only work if the access token has the 'https://www.googleapis.com/auth/business.manage' scope
     try {
       const places = await initializeGoogleBusinessPlaces(user, user?.accessToken);
       setGoogleBusinessPlaces(places);
@@ -92,7 +93,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Store in localStorage
     localStorage.setItem('googleUser', JSON.stringify(user));
     localStorage.setItem('isGoogleConnected', 'true');
-    localStorage.setItem('googleBusinessPlaces', JSON.stringify(places)); // Use the fetched places
+    localStorage.setItem('googleBusinessPlaces', JSON.stringify(googleBusinessPlaces)); // Use the fetched places
   };
 
   const disconnectGoogle = () => {

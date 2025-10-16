@@ -57,6 +57,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       // to request the 'https://www.googleapis.com/auth/business.manage' scope.
       
       // For demonstration purposes, we're passing the credential as is.
+      // NOTE: This will likely result in a 401 error if the access token doesn't have the proper scope
       connectGoogleWithInfo(userCred, response.credential);
       
       if (onSuccess) {

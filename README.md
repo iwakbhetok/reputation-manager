@@ -18,3 +18,20 @@ View your app in AI Studio: https://ai.studio/apps/drive/1jR1-vlcSq_P5nnkvijYMPw
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Google Business API Setup
+
+To properly connect to the Google Business Management API and avoid 401 unauthorized errors:
+
+1. **Enable the Google Business Profile API** in your Google Cloud Console
+2. **Create OAuth 2.0 credentials** in Google Cloud Console
+3. **Add the following scope** to your OAuth consent screen:
+   - `https://www.googleapis.com/auth/business.manage`
+4. **Set environment variables** in your `.env.local` file:
+   ```
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret  # Only for development - use backend in production
+   ```
+5. **Configure authorized redirect URIs** in Google Cloud Console to include your application's URL
+
+**Important:** For production use, the OAuth token exchange should happen on your backend server to protect your client secret. The current frontend implementation is for development purposes only.
